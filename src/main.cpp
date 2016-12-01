@@ -164,7 +164,6 @@ static void init()
 	prog->addAttribute("vertPos");
     prog->addAttribute("vertNor");
 
-    srand(static_cast <unsigned> (time(0)));
     for (int i = 0; i < NUM_OBJECTS; i++) {
         startingLocs[i] = vec3(getRandFloat(40.0), 0.0, getRandFloat(40.0));
         materials[i] = rand() % 5;
@@ -409,6 +408,12 @@ int main(int argc, char **argv)
 		return 0;
 	}
 	RESOURCE_DIR = argv[1] + string("/");
+    unsigned srandTime = static_cast <unsigned> (time(0));
+    if (argc == 3) {
+        srandTime = (unsigned) atoll(argv[2]);
+    }
+    cout << srandTime << endl;
+    srand(srandTime);
 
 	// Set error callback.
 	glfwSetErrorCallback(error_callback);
