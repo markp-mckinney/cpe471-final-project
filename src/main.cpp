@@ -39,6 +39,8 @@ vec3 playerLoc = vec3(0, 0, 0);
 vec3 forwardVec = vec3(0, 0, -1);
 
 bool trackForward = true;
+double oldX, oldY;
+bool hideCursor = true;
 
 bool animateUp = true;
 float armRotate = 0.0;
@@ -75,6 +77,13 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
             case GLFW_KEY_T:
                 trackForward = !trackForward;
                 break;
+            case GLFW_KEY_C:
+                hideCursor = !hideCursor;
+                if (hideCursor) {
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                } else {
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                }
             default:
                 break;
         }
@@ -124,9 +133,13 @@ static void resize_callback(GLFWwindow *window, int width, int height) {
    glViewport(0, 0, width, height);
 }
 
-static void scroll_callback(GLFWwindow *window, double dx, double dy) {
+static void cursor_pos_callback(GLFWwindow* window, double x, double y) {
     int width, height;
     glfwGetWindowSize(window, &width, &height);
+    float dx = oldX - x;
+    float dy = oldY - y;
+    oldX = x;
+    oldY = y;
     theta += (dx/width) * 3.14 * 3;
     if ((dy < 0 && phi <= 0) || (dy > 0 && phi >= -D80)) {
         phi -= (dy/height) * 3.14 * 3;
@@ -483,7 +496,8 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, key_callback);
    //set the mouse call back
    glfwSetMouseButtonCallback(window, mouse_callback);
-   glfwSetScrollCallback(window, scroll_callback);
+   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+   glfwSetCursorPosCallback(window, cursor_pos_callback);
    //set the window resize call back
    glfwSetFramebufferSizeCallback(window, resize_callback);
 
