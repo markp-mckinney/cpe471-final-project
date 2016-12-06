@@ -25,6 +25,7 @@ string RESOURCE_DIR = ""; // Where the resources are loaded from
 shared_ptr<Program> prog;
 shared_ptr<Shape> shape;
 shared_ptr<Shape> cube;
+shared_ptr<Shape> car;
 
 int g_width, g_height;
 float phi = 0.0;
@@ -156,6 +157,11 @@ static void init()
     cube->resize();
     cube->init();
 
+    car = make_shared<Shape>();
+    car->loadMesh(RESOURCE_DIR + "car.obj"); // from http://www.turbosquid.com/FullPreview/Index.cfm/ID/1092438
+    car->resize();
+    car->init();
+
 	// Initialize the GLSL program.
 	prog = make_shared<Program>();
 	prog->setVerbose(true);
@@ -241,9 +247,9 @@ static void render()
     playerLoc.y = 0.0;
 
     if (trackForward) {
-        V->lookAt((playerLoc - 3.0f * forwardVec) + vec3(0, 2, 0), playerLoc, up);
+        V->lookAt((playerLoc - 5.0f * forwardVec) + vec3(0, 2, 0), playerLoc, up);
     } else {
-        V->lookAt(playerLoc - 3.0f * rot, playerLoc, up);
+        V->lookAt(playerLoc - 5.0f * rot, playerLoc, up);
     }
 
     // Apply perspective projection.
@@ -259,15 +265,17 @@ static void render()
     M->pushMatrix();
         M->loadIdentity();
         M->translate(playerLoc);
+        M->translate(vec3(0, -0.34, 0));
         float angle = atan2(forwardVec.x * -1, dot(forwardVec, vec3(0, 0, -1)));
         M->rotate(angle, vec3(0, 1, 0)); // rotate to actual position from forward
-        M->rotate(-1.5, vec3(0, 1, 0)); // rotate by default to face forward
+        M->rotate(1.57, vec3(0, 1, 0)); // rotate by default to face forward
+        M->scale(vec3(2, 2, 2));
         glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
         glUniform3f(prog->getUniform("MatAmb"), 0.93, 0.83, 0.14);
         glUniform3f(prog->getUniform("MatDif"), 0.9, 0.83, 0.4);
         glUniform3f(prog->getUniform("MatSpec"), 0.9, 0.83, 0.4);
         glUniform1f(prog->getUniform("shine"), 24.0);
-        shape->draw(prog);
+        car->draw(prog);
     M->popMatrix();
 
     // grass plane
