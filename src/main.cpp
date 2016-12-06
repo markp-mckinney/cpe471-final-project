@@ -76,6 +76,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 break;
             case GLFW_KEY_T:
                 trackForward = !trackForward;
+                if (!trackForward) {
+                    theta = -1.57491;
+                    phi = -0.329875;
+                }
                 break;
             case GLFW_KEY_C:
                 hideCursor = !hideCursor;
@@ -143,6 +147,9 @@ static void cursor_pos_callback(GLFWwindow* window, double x, double y) {
     theta += (dx/width) * 3.14 * 3;
     if ((dy < 0 && phi <= 0) || (dy > 0 && phi >= -D80)) {
         phi -= (dy/height) * 3.14 * 3;
+    }
+    if (phi > -0.02) {
+        phi = -0.02;
     }
 }
 
@@ -498,6 +505,7 @@ int main(int argc, char **argv)
    glfwSetMouseButtonCallback(window, mouse_callback);
    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
    glfwSetCursorPosCallback(window, cursor_pos_callback);
+   glfwGetCursorPos(window, &oldX, &oldY);
    //set the window resize call back
    glfwSetFramebufferSizeCallback(window, resize_callback);
 
