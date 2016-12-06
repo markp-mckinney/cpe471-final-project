@@ -128,7 +128,7 @@ static void scroll_callback(GLFWwindow *window, double dx, double dy) {
     int width, height;
     glfwGetWindowSize(window, &width, &height);
     theta += (dx/width) * 3.14 * 3;
-    if ((dy < 0 && phi <= D80) || (dy > 0 && phi >= -D80)) {
+    if ((dy < 0 && phi <= 0) || (dy > 0 && phi >= -D80)) {
         phi -= (dy/height) * 3.14 * 3;
     }
 }
