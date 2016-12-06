@@ -1,4 +1,5 @@
 #include <iostream>
+#include <math.h>
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -29,10 +30,14 @@ int g_width, g_height;
 float phi = 0.0;
 float theta = 0.0;
 static const float D80 = 1.39626;
-int strafe = 0;
-int zoom = 0;
-float moveSpeed = 0.05;
-vec3 camera = vec3(0, 0, 0);
+int turn = 0;
+int accelerate = 0;
+float moveSpeed = 0.08;
+float turnSpeed = 0.025;
+vec3 playerLoc = vec3(0, 0, 0);
+vec3 forwardVec = vec3(0, 0, -1);
+
+bool trackForward = true;
 
 bool animateUp = true;
 float armRotate = 0.0;
@@ -55,16 +60,19 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 glfwSetWindowShouldClose(window, GL_TRUE);
                 break;
             case GLFW_KEY_A:
-                strafe = -1;
+                turn = -1;
                 break;
             case GLFW_KEY_D:
-                strafe = 1;
+                turn = 1;
                 break;
             case GLFW_KEY_W:
-                zoom = 1;
+                accelerate = 1;
                 break;
             case GLFW_KEY_S:
-                zoom = -1;
+                accelerate = -1;
+                break;
+            case GLFW_KEY_T:
+                trackForward = !trackForward;
                 break;
             default:
                 break;
@@ -75,23 +83,23 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 glfwSetWindowShouldClose(window, GL_TRUE);
                 break;
             case GLFW_KEY_A:
-                if (strafe == -1) {
-                    strafe = 0;
+                if (turn == -1) {
+                    turn = 0;
                 }
                 break;
             case GLFW_KEY_D:
-                if (strafe == 1) {
-                    strafe = 0;
+                if (turn == 1) {
+                    turn = 0;
                 }
                 break;
             case GLFW_KEY_W:
-                if (zoom == 1) {
-                    zoom = 0;
+                if (accelerate == 1) {
+                    accelerate = 0;
                 }
                 break;
             case GLFW_KEY_S:
-                if (zoom == -1) {
-                    zoom = 0;
+                if (accelerate == -1) {
+                    accelerate = 0;
                 }
                 break;
             default:
@@ -223,23 +231,21 @@ static void render()
     auto P = make_shared<MatrixStack>();
     auto M = make_shared<MatrixStack>();
     auto V = make_shared<MatrixStack>();
-    vec3 up;
-    if (cos(phi) < 0) {
-        up = vec3(0.0, -1.0, 0.0);
-    } else {
-        up = vec3(0.0, 1.0, 0.0);
-    }
+    vec3 up = vec3(0.0, 1.0, 0.0);
 
     vec3 rot = vec3(cos(phi) * cos(theta), sin(phi), cos(phi) * cos((3.14/2) - theta));
-    vec3 lap = camera + rot;
-    vec3 forward = normalize(lap - camera);
-    vec3 left = cross(up, forward);
-    camera += forward * (moveSpeed * zoom);
-    camera -= left * (moveSpeed * strafe);
-    camera.y = 0.0;
-    lap = camera + rot;
-    V->lookAt(camera, lap, up);
-    //V->translate(vec3(strafe * moveSpeed, 0.0, zoom * moveSpeed));
+    vec3 left = cross(up, forwardVec);
+    forwardVec -= turnSpeed * turn * left;
+    forwardVec = normalize(forwardVec);
+    playerLoc += (moveSpeed * accelerate) * forwardVec;
+    playerLoc.y = 0.0;
+
+    if (trackForward) {
+        V->lookAt((playerLoc - 3.0f * forwardVec) + vec3(0, 2, 0), playerLoc, up);
+    } else {
+        V->lookAt(playerLoc - 3.0f * rot, playerLoc, up);
+    }
+
     // Apply perspective projection.
     P->pushMatrix();
     P->perspective(45.0f, aspect, 0.01f, 100.0f);
@@ -248,6 +254,21 @@ static void render()
     glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, value_ptr(P->topMatrix()));
     glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, value_ptr(V->topMatrix()));
     glUniform3f(prog->getUniform("lightPos"), 6.0, 2.0, 2.0);
+
+    // car
+    M->pushMatrix();
+        M->loadIdentity();
+        M->translate(playerLoc);
+        float angle = atan2(forwardVec.x * -1, dot(forwardVec, vec3(0, 0, -1)));
+        M->rotate(angle, vec3(0, 1, 0)); // rotate to actual position from forward
+        M->rotate(-1.5, vec3(0, 1, 0)); // rotate by default to face forward
+        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+        glUniform3f(prog->getUniform("MatAmb"), 0.93, 0.83, 0.14);
+        glUniform3f(prog->getUniform("MatDif"), 0.9, 0.83, 0.4);
+        glUniform3f(prog->getUniform("MatSpec"), 0.9, 0.83, 0.4);
+        glUniform1f(prog->getUniform("shine"), 24.0);
+        shape->draw(prog);
+    M->popMatrix();
 
     // grass plane
     M->pushMatrix();
