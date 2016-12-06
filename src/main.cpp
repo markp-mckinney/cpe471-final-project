@@ -240,9 +240,11 @@ static void render()
     vec3 up = vec3(0.0, 1.0, 0.0);
 
     vec3 rot = vec3(cos(phi) * cos(theta), sin(phi), cos(phi) * cos((3.14/2) - theta));
-    vec3 left = cross(up, forwardVec);
-    forwardVec -= turnSpeed * turn * left;
-    forwardVec = normalize(forwardVec);
+    if (accelerate != 0) {
+        vec3 left = cross(up, forwardVec);
+        forwardVec -= accelerate * turnSpeed * turn * left;
+        forwardVec = normalize(forwardVec);
+    }
     playerLoc += (moveSpeed * accelerate) * forwardVec;
     playerLoc.y = 0.0;
 
