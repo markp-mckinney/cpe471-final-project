@@ -33,7 +33,7 @@ float theta = 0.0;
 static const float D80 = 1.39626;
 int turn = 0;
 int accelerate = 0;
-float moveSpeed = 0.08;
+float moveSpeed = 0.1;
 float turnSpeed = 0.025;
 vec3 playerLoc = vec3(0, 0, 0);
 vec3 forwardVec = vec3(0, 0, -1);
@@ -88,6 +88,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 } else {
                     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
                 }
+                break;
+            case GLFW_KEY_LEFT_SHIFT:
+                moveSpeed *= 2;
+                break;
             default:
                 break;
         }
@@ -115,6 +119,9 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 if (accelerate == -1) {
                     accelerate = 0;
                 }
+                break;
+            case GLFW_KEY_LEFT_SHIFT:
+                moveSpeed /= 2;
                 break;
             default:
                 break;
@@ -155,6 +162,11 @@ static void cursor_pos_callback(GLFWwindow* window, double x, double y) {
 
 static float getRandFloat(float max) {
     return (float) ((-max) + static_cast <float> (rand() / (static_cast <float> (RAND_MAX / (max * 2)))));
+}
+
+static float getRandFloatMinMax(float min, float max) {
+    float ret = min + getRandFloat(max - min);
+    return getRandFloat(1.0f) > 0 ? ret : -ret;
 }
 
 static void init()
@@ -199,7 +211,7 @@ static void init()
     prog->addAttribute("vertNor");
 
     for (int i = 0; i < NUM_OBJECTS; i++) {
-        startingLocs[i] = vec3(getRandFloat(40.0), 0.0, getRandFloat(40.0));
+        startingLocs[i] = vec3(getRandFloatMinMax(140.0, 200.0), 0.0, getRandFloatMinMax(140.0, 200.0));
         materials[i] = rand() % 5;
         rotations[i] = getRandFloat(7.0);
     }
@@ -287,7 +299,7 @@ static void render()
     M->pushMatrix();
         M->loadIdentity();
         M->translate(playerLoc);
-        M->translate(vec3(0, -0.34, 0));
+        M->translate(vec3(0, -0.32, 0));
         float angle = atan2(forwardVec.x * -1, dot(forwardVec, vec3(0, 0, -1)));
         M->rotate(angle, vec3(0, 1, 0)); // rotate to actual position from forward
         M->rotate(1.57, vec3(0, 1, 0)); // rotate by default to face forward
@@ -297,6 +309,11 @@ static void render()
         glUniform3f(prog->getUniform("MatDif"), 0.9, 0.83, 0.4);
         glUniform3f(prog->getUniform("MatSpec"), 0.9, 0.83, 0.4);
         glUniform1f(prog->getUniform("shine"), 24.0);
+
+        glUniform3f(prog->getUniform("MatAmb"), 0.63, 0.13, 0.14);
+        glUniform3f(prog->getUniform("MatDif"), 0.3, 0.1, 0.1);
+        glUniform3f(prog->getUniform("MatSpec"), 0.3, 0.1, 0.1);
+        glUniform1f(prog->getUniform("shine"), 14.0);
         car->draw(prog);
     M->popMatrix();
 
@@ -304,11 +321,52 @@ static void render()
     M->pushMatrix();
         M->loadIdentity();
         M->translate(vec3(0.0, -1.0, 0.0));
-        M->scale(vec3(50.0, 0.05, 50.0));
-	  	glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+        M->scale(vec3(200.0, 0.05, 200.0));
+        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
         glUniform3f(prog->getUniform("MatAmb"), 0.13, 0.83, 0.14);
         glUniform3f(prog->getUniform("MatDif"), 0.3, 0.83, 0.4);
         glUniform3f(prog->getUniform("MatSpec"), 0.3, 0.83, 0.4);
+        glUniform1f(prog->getUniform("shine"), 4.0);
+        cube->draw(prog);
+    M->popMatrix();
+
+    // roads
+    for (int i = -90; i <= 90; i += 30) {
+        M->pushMatrix();
+            M->loadIdentity();
+            M->translate(vec3(vec3(i, -0.99, 0.0)));
+            M->scale(vec3(5.0, 0.05, 80.0));
+            glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+            glUniform3f(prog->getUniform("MatAmb"), 0.03, 0.03, 0.04);
+            glUniform3f(prog->getUniform("MatDif"), 0.03, 0.03, 0.04);
+            glUniform3f(prog->getUniform("MatSpec"), 0.03, 0.03, 0.04);
+            glUniform1f(prog->getUniform("shine"), 4.0);
+            cube->draw(prog);
+        M->popMatrix();
+    }
+
+    // first side road
+    M->pushMatrix();
+        M->loadIdentity();
+        M->translate(vec3(0.0, -0.99, 80.0));
+        M->scale(vec3(95.0, 0.05, 5.0));
+        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+        glUniform3f(prog->getUniform("MatAmb"), 0.03, 0.03, 0.04);
+        glUniform3f(prog->getUniform("MatDif"), 0.03, 0.03, 0.04);
+        glUniform3f(prog->getUniform("MatSpec"), 0.03, 0.03, 0.04);
+        glUniform1f(prog->getUniform("shine"), 4.0);
+        cube->draw(prog);
+    M->popMatrix();
+
+    // second side road
+    M->pushMatrix();
+        M->loadIdentity();
+        M->translate(vec3(0.0, -0.99, -80.0));
+        M->scale(vec3(95.0, 0.05, 5.0));
+        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+        glUniform3f(prog->getUniform("MatAmb"), 0.03, 0.03, 0.04);
+        glUniform3f(prog->getUniform("MatDif"), 0.03, 0.03, 0.04);
+        glUniform3f(prog->getUniform("MatSpec"), 0.03, 0.03, 0.04);
         glUniform1f(prog->getUniform("shine"), 4.0);
 	  	cube->draw(prog);
     M->popMatrix();
