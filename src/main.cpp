@@ -45,14 +45,46 @@ bool hideCursor = true;
 bool animateUp = true;
 float armRotate = 0.0;
 
+bool initialCam = true;
+vec3 flyCam = vec3(0, 100, 250);
+float flySpeed = 0.8;
+float camDistance = 5.0;
+
 #define NUM_OBJECTS 50
 vec3 startingLocs[NUM_OBJECTS];
 int materials[NUM_OBJECTS];
 float rotations[NUM_OBJECTS];
 
+vector<vec3> buildingLocs[8];
+vector<vec3> buildingScales[8];
+
 static void error_callback(int error, const char *description)
 {
 	cerr << description << endl;
+}
+
+// Axis Aligned Bounding Box collision detection
+// Only need to check x/z plane since the car height is static
+static bool checkCollision(vec3 carPos, vec3 objPos, vec3 objScale) {
+    if (fabs(carPos.x - objPos.x) < 1.6 + objScale.x){// / 1.25) {
+        if (fabs(carPos.z - objPos.z) < 1.6 + objScale.z){// / 1.25) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool checkCollisions(vec3 carPos) {
+    for (int i = 0; i < 8; i++) {
+        int j = 0;
+        while (j < buildingLocs[i].size()) {
+            if (checkCollision(carPos, buildingLocs[i][j], buildingScales[i][j])) {
+                return true;
+            }
+            j++;
+        }
+    }
+    return false;
 }
 
 static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -90,7 +122,30 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 }
                 break;
             case GLFW_KEY_LEFT_SHIFT:
-                moveSpeed *= 2;
+                moveSpeed *= 3;
+                break;
+            case GLFW_KEY_P:
+                if (initialCam) {
+                    initialCam = false;
+                } else {
+                    initialCam = true;
+                    flyCam = vec3(0, 100, 250);
+                }
+                break;
+            case GLFW_KEY_TAB:
+                if (camDistance == 5.0f) {
+                    camDistance = 270.0;
+                } else {
+                    camDistance = 5.0;
+                }
+                break;
+            case GLFW_KEY_E:
+                camDistance += 5.0;
+                break;
+            case GLFW_KEY_Q:
+                if (camDistance > 5.0) {
+                    camDistance -= 5.0;
+                }
                 break;
             default:
                 break;
@@ -121,7 +176,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
                 }
                 break;
             case GLFW_KEY_LEFT_SHIFT:
-                moveSpeed /= 2;
+                moveSpeed /= 3;
                 break;
             default:
                 break;
@@ -210,10 +265,32 @@ static void init()
 	prog->addAttribute("vertPos");
     prog->addAttribute("vertNor");
 
+    // robot/rabbit locations
     for (int i = 0; i < NUM_OBJECTS; i++) {
         startingLocs[i] = vec3(getRandFloatMinMax(140.0, 200.0), 0.0, getRandFloatMinMax(140.0, 200.0));
         materials[i] = rand() % 5;
         rotations[i] = getRandFloat(7.0);
+    }
+
+    // building locations and scales
+    int x = -105;
+    for (int i = 0; i < 8; i++) {
+        //cout << "row " << i << endl;
+        float startAt = -50.0;
+        float remaining = 63.0;
+        while (remaining >= 20) {
+            float height = fabs(getRandFloatMinMax(20.0, 35.0) * 2);
+            float length = fmax(fabs(getRandFloatMinMax(10.0, (remaining - 18) / 2) * 2), 10.0);
+            if (length > remaining - 15) {
+                length = remaining - 15;
+            }
+            remaining -= length;
+            buildingScales[i].push_back(vec3(8.0, height, length));
+            buildingLocs[i].push_back(vec3((float) x, height / 2, startAt + (length / 2)));
+            startAt += length * 1.8 + 12;
+            //cout << "building at " << x << " " << height / 2 << " " << startAt + (length / 2) << endl;
+        }
+        x += 30;
     }
 }
 
@@ -262,10 +339,8 @@ static void render()
 	// Clear framebuffer.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//Use the matrix stack for Lab 6
     float aspect = width/(float)height;
 
-    // Create the matrix stacks - please leave these alone for now
     auto P = make_shared<MatrixStack>();
     auto M = make_shared<MatrixStack>();
     auto V = make_shared<MatrixStack>();
@@ -273,55 +348,55 @@ static void render()
 
     vec3 rot = vec3(cos(phi) * cos(theta), sin(phi), cos(phi) * cos((3.14/2) - theta));
     if (accelerate != 0) {
-        vec3 left = cross(up, forwardVec);
-        forwardVec -= accelerate * turnSpeed * turn * left;
-        forwardVec = normalize(forwardVec);
+        bool collision = false;
+        if (accelerate == 1) {
+            // check collisions in the front
+            collision = checkCollisions(playerLoc + 0.5f * forwardVec);
+        } else {
+            // check collisions in the back
+            collision = checkCollisions(playerLoc - 0.5f * forwardVec);
+        }
+        if (!collision) {
+            vec3 left = cross(up, forwardVec);
+            forwardVec -= accelerate * turnSpeed * turn * left;
+            forwardVec = normalize(forwardVec);
+        } else {
+            accelerate = 0;
+        }
     }
     playerLoc += (moveSpeed * accelerate) * forwardVec;
     playerLoc.y = 0.0;
 
-    if (trackForward) {
-        V->lookAt((playerLoc - 5.0f * forwardVec) + vec3(0, 2, 0), playerLoc, up);
+    if (initialCam) {
+        // fly in the camera from far away
+        V->lookAt(flyCam, playerLoc, up);
+        vec3 dir = playerLoc - flyCam;
+        flyCam += flySpeed * normalize(dir);
+        if (length(dir) <= 5.0) {//(flyCam.z <= 5.0) {
+            initialCam = false;
+        }
     } else {
-        V->lookAt(playerLoc - 5.0f * rot, playerLoc, up);
+        if (trackForward) {
+            V->lookAt((playerLoc - camDistance * forwardVec) + vec3(0, 2, 0), playerLoc, up);
+        } else {
+            V->lookAt(playerLoc - camDistance * rot, playerLoc, up);
+        }
     }
 
     // Apply perspective projection.
     P->pushMatrix();
-    P->perspective(45.0f, aspect, 0.01f, 100.0f);
+    P->perspective(45.0f, aspect, 0.01f, 400.0f);
 
     prog->bind();
     glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, value_ptr(P->topMatrix()));
     glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, value_ptr(V->topMatrix()));
     glUniform3f(prog->getUniform("lightPos"), 6.0, 2.0, 2.0);
 
-    // car
-    M->pushMatrix();
-        M->loadIdentity();
-        M->translate(playerLoc);
-        M->translate(vec3(0, -0.32, 0));
-        float angle = atan2(forwardVec.x * -1, dot(forwardVec, vec3(0, 0, -1)));
-        M->rotate(angle, vec3(0, 1, 0)); // rotate to actual position from forward
-        M->rotate(1.57, vec3(0, 1, 0)); // rotate by default to face forward
-        M->scale(vec3(2, 2, 2));
-        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
-        glUniform3f(prog->getUniform("MatAmb"), 0.93, 0.83, 0.14);
-        glUniform3f(prog->getUniform("MatDif"), 0.9, 0.83, 0.4);
-        glUniform3f(prog->getUniform("MatSpec"), 0.9, 0.83, 0.4);
-        glUniform1f(prog->getUniform("shine"), 24.0);
-
-        glUniform3f(prog->getUniform("MatAmb"), 0.63, 0.13, 0.14);
-        glUniform3f(prog->getUniform("MatDif"), 0.3, 0.1, 0.1);
-        glUniform3f(prog->getUniform("MatSpec"), 0.3, 0.1, 0.1);
-        glUniform1f(prog->getUniform("shine"), 14.0);
-        car->draw(prog);
-    M->popMatrix();
-
     // grass plane
     M->pushMatrix();
         M->loadIdentity();
         M->translate(vec3(0.0, -1.0, 0.0));
-        M->scale(vec3(200.0, 0.05, 200.0));
+        M->scale(vec3(800.0, 0.05, 800.0));
         glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
         glUniform3f(prog->getUniform("MatAmb"), 0.13, 0.83, 0.14);
         glUniform3f(prog->getUniform("MatDif"), 0.3, 0.83, 0.4);
@@ -331,6 +406,7 @@ static void render()
     M->popMatrix();
 
     // roads
+    glDisable(GL_DEPTH_TEST); // disable to draw roads on top of grass
     for (int i = -90; i <= 90; i += 30) {
         M->pushMatrix();
             M->loadIdentity();
@@ -370,6 +446,45 @@ static void render()
         glUniform1f(prog->getUniform("shine"), 4.0);
 	  	cube->draw(prog);
     M->popMatrix();
+    glEnable(GL_DEPTH_TEST);
+
+    // car
+    M->pushMatrix();
+        M->loadIdentity();
+        M->translate(playerLoc);
+        M->translate(vec3(0, -0.32, 0));
+        float angle = atan2(forwardVec.x * -1, dot(forwardVec, vec3(0, 0, -1)));
+        M->rotate(angle, vec3(0, 1, 0)); // rotate to actual position from forward
+        M->rotate(1.57, vec3(0, 1, 0)); // rotate by default to face forward
+        M->scale(vec3(2, 2, 2));
+        glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+        glUniform3f(prog->getUniform("MatAmb"), 0.93, 0.83, 0.14);
+        glUniform3f(prog->getUniform("MatDif"), 0.9, 0.83, 0.4);
+        glUniform3f(prog->getUniform("MatSpec"), 0.9, 0.83, 0.4);
+        glUniform1f(prog->getUniform("shine"), 24.0);
+
+        glUniform3f(prog->getUniform("MatAmb"), 0.63, 0.13, 0.14);
+        glUniform3f(prog->getUniform("MatDif"), 0.3, 0.1, 0.1);
+        glUniform3f(prog->getUniform("MatSpec"), 0.3, 0.1, 0.1);
+        glUniform1f(prog->getUniform("shine"), 14.0);
+        car->draw(prog);
+    M->popMatrix();
+
+    // buildings
+    for (int i = 0; i < 8; i++) {
+        int j = 0;
+        while (j < buildingLocs[i].size()) {
+            M->pushMatrix();
+                M->loadIdentity();
+                M->translate(buildingLocs[i][j]);
+                M->scale(buildingScales[i][j]);
+                glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
+                setMaterial(4);
+                cube->draw(prog);
+            M->popMatrix();
+            j++;
+        }
+    }
 
     // draw objects
     for (int i = 0; i < NUM_OBJECTS / 2; i++) {
