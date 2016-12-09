@@ -215,13 +215,22 @@ static void cursor_pos_callback(GLFWwindow* window, double x, double y) {
     }
 }
 
-static float getRandFloat(float max) {
-    return (float) ((-max) + static_cast <float> (rand() / (static_cast <float> (RAND_MAX / (max * 2)))));
+static float randFloat(float max) {
+    return (float) (static_cast <float> (rand() / (static_cast <float> (RAND_MAX / max))));
 }
 
-static float getRandFloatMinMax(float min, float max) {
-    float ret = min + getRandFloat(max - min);
-    return getRandFloat(1.0f) > 0 ? ret : -ret;
+static float randFloatSigned(float max) {
+    float f = randFloat(max);
+    return rand() % 2 ? f : -f;
+}
+
+static float randFloatMinMax(float min, float max) {
+    return min + randFloat(max - min);
+}
+
+static float randFloatMinMaxSigned(float min, float max) {
+    float f = randFloatMinMax(min, max);
+    return rand() % 2 ? f : -f;
 }
 
 static void init()
@@ -267,27 +276,31 @@ static void init()
 
     // robot/rabbit locations
     for (int i = 0; i < NUM_OBJECTS; i++) {
-        startingLocs[i] = vec3(getRandFloatMinMax(140.0, 200.0), 0.0, getRandFloatMinMax(140.0, 200.0));
+        float x = randFloatSigned(200.0);
+        float z;
+        if (x < -120 || x > 120) {
+            z = randFloatSigned(200.0);
+        } else {
+            z = randFloatMinMaxSigned(100, 200);
+        }
+        startingLocs[i] = vec3(x, 0.0, z); 
         materials[i] = rand() % 5;
-        rotations[i] = getRandFloat(7.0);
+        rotations[i] = randFloat(7.0);
     }
 
     // building locations and scales
     int x = -105;
     for (int i = 0; i < 8; i++) {
         //cout << "row " << i << endl;
-        float startAt = -50.0;
-        float remaining = 63.0;
-        while (remaining >= 20) {
-            float height = fabs(getRandFloatMinMax(20.0, 35.0) * 2);
-            float length = fmax(fabs(getRandFloatMinMax(10.0, (remaining - 18) / 2) * 2), 10.0);
-            if (length > remaining - 15) {
-                length = remaining - 15;
-            }
-            remaining -= length;
+        float startAt = -70.0;
+        float remaining = 80.0;
+        while (remaining >= 15) {
+            float height = randFloatMinMax(3.0, 70.0);
+            float length = randFloatMinMax(5.0, fmin(30, remaining - 5));
+            remaining -= (length + 10);
             buildingScales[i].push_back(vec3(8.0, height, length));
-            buildingLocs[i].push_back(vec3((float) x, height / 2, startAt + (length / 2)));
-            startAt += length * 1.8 + 12;
+            buildingLocs[i].push_back(vec3((float) x, height / 2, startAt + length));
+            startAt += length * 2 + 10;
             //cout << "building at " << x << " " << height / 2 << " " << startAt + (length / 2) << endl;
         }
         x += 30;
