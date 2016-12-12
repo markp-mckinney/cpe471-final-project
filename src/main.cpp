@@ -8,6 +8,7 @@
 #include "Program.h"
 #include "MatrixStack.h"
 #include "Shape.h"
+#include "Texture.h"
 
 // value_ptr for glm
 #include <glm/gtc/type_ptr.hpp>
@@ -23,9 +24,14 @@ using namespace glm;
 GLFWwindow *window; // Main application window
 string RESOURCE_DIR = ""; // Where the resources are loaded from
 shared_ptr<Program> prog;
+shared_ptr<Program> grassProg;
 shared_ptr<Shape> shape;
 shared_ptr<Shape> cube;
 shared_ptr<Shape> car;
+
+Texture grassTexture;
+GLint h_grassTexture;
+GLuint GrndBuffObj, GrndNorBuffObj, GrndTexBuffObj, GIndxBuffObj;
 
 int g_width, g_height;
 float phi = 0.0;
@@ -233,6 +239,57 @@ static float randFloatMinMaxSigned(float min, float max) {
     return rand() % 2 ? f : -f;
 }
 
+static void initGeom() {
+    float g_groundSize = 400;
+    float g_groundY = -1.0;
+
+    // A x-z plane at y = g_groundY of dimension [-g_groundSize, g_groundSize]^2
+    float GrndPos[] = {
+    -g_groundSize, g_groundY, -g_groundSize,
+    -g_groundSize, g_groundY,  g_groundSize,
+     g_groundSize, g_groundY,  g_groundSize,
+     g_groundSize, g_groundY, -g_groundSize
+    };
+
+    float GrndNorm[] = {
+     0, 1, 0,
+     0, 1, 0,
+     0, 1, 0,
+     0, 1, 0,
+     0, 1, 0,
+     0, 1, 0
+    };
+
+    static GLfloat GrndTex[] = {
+      0, 0, // back
+      0, 100,
+      100, 100,
+      100, 0 };
+
+    unsigned short idx[] = {0, 1, 2, 0, 2, 3};
+
+    GLuint VertexArrayID;
+    //generate the VAO
+    glGenVertexArrays(1, &VertexArrayID);
+    glBindVertexArray(VertexArrayID);
+
+    glGenBuffers(1, &GrndBuffObj);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndBuffObj);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GrndPos), GrndPos, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &GrndNorBuffObj);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndNorBuffObj);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GrndNorm), GrndNorm, GL_STATIC_DRAW);
+    
+    glGenBuffers(1, &GrndTexBuffObj);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndTexBuffObj);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GrndTex), GrndTex, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &GIndxBuffObj);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GIndxBuffObj);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
+}
+
 static void init()
 {
 	GLSL::checkVersion();
@@ -273,6 +330,28 @@ static void init()
     prog->addUniform("lightPos");
 	prog->addAttribute("vertPos");
     prog->addAttribute("vertNor");
+
+    grassProg = make_shared<Program>();
+	grassProg->setVerbose(true);
+	grassProg->setShaderNames(RESOURCE_DIR + "texVert.glsl", RESOURCE_DIR + "texFragGrass.glsl");
+	grassProg->init();
+
+    grassTexture.setFilename(RESOURCE_DIR + "grass.bmp");
+    grassTexture.setUnit(0);
+    grassTexture.setName("grassTexture");
+    grassTexture.init(GL_MIRRORED_REPEAT);
+
+    grassProg->addUniform("P");
+	grassProg->addUniform("MV");
+	grassProg->addUniform("grassTexture");
+    grassProg->addUniform("lightPos");
+	grassProg->addAttribute("vertPos");
+    grassProg->addAttribute("vertNor");
+	grassProg->addAttribute("vertTex");
+	grassProg->addTexture(&grassTexture);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 
     // robot/rabbit locations
     for (int i = 0; i < NUM_OBJECTS; i++) {
@@ -400,6 +479,32 @@ static void render()
     P->pushMatrix();
     P->perspective(45.0f, aspect, 0.01f, 400.0f);
 
+    grassProg->bind();
+    glUniformMatrix4fv(grassProg->getUniform("P"), 1, GL_FALSE, value_ptr(P->topMatrix()));
+    glUniformMatrix4fv(grassProg->getUniform("MV"), 1, GL_FALSE, value_ptr(V->topMatrix()));
+    glUniform3f(grassProg->getUniform("lightPos"), 6.0, 2.0, 2.0);
+
+	glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndBuffObj);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndNorBuffObj);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	 
+	glEnableVertexAttribArray(2);
+    glBindBuffer(GL_ARRAY_BUFFER, GrndTexBuffObj);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GIndxBuffObj);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+
+    grassProg->unbind();
+
     prog->bind();
     glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, value_ptr(P->topMatrix()));
     glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, value_ptr(V->topMatrix()));
@@ -415,7 +520,7 @@ static void render()
         glUniform3f(prog->getUniform("MatDif"), 0.3, 0.83, 0.4);
         glUniform3f(prog->getUniform("MatSpec"), 0.3, 0.83, 0.4);
         glUniform1f(prog->getUniform("shine"), 4.0);
-        cube->draw(prog);
+        //cube->draw(prog);
     M->popMatrix();
 
     // roads
@@ -697,6 +802,7 @@ int main(int argc, char **argv)
 
 	// Initialize scene. Note geometry initialized in init now
 	init();
+    initGeom();
 
 	// Loop until the user closes the window.
 	while(!glfwWindowShouldClose(window)) {
