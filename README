@@ -1,0 +1,41 @@
+Mark McKinney
+
+This is my final project for CPE 471 at Cal Poly.
+It is a procedurally generated city which the user drives through.
+
+To run, use CMake and then execute with the resource directory as the only argument.
+
+The grass texture was obtained from http://www.outworldz.com/cgi/free-seamless-textures.plx?c=Grass%20textures,CC0
+
+The car object was obtained from http://www.turbosquid.com/FullPreview/Index.cfm/ID/1092438
+
+Features:
+    - A grid of roads for a city
+    - Randomly generated building sizes (height and length), locations, and materials
+    - Randomly generated bunnies and moving robots outside the city
+    - Proper car turning forwards and backwards
+    - Collision detection for all objects (Axis Aligned Bounding Boxes)
+    - Textured grass ground plane
+    - Startup camera fly-in
+
+Controls:
+    W: Move forwards
+    S: Move backwards
+    A: Turn left
+    D: Turn right
+    Left Shift: Boost move speed
+
+    C: Show/hide cursor
+    T: Change camera mode (locked or free)
+    Mouse: Change camera angle when in free camera mode
+    P: Cancel camera fly-in or start new camera fly-in
+    E: Increase camera distance
+    Q: Decrease camera distance
+    Tab: Reset camera distance or set to far out if already reset
+
+I wanted to texture the car and buildings, but finding a free car with textures that would work easily in OpenGL was a huge pain.
+The buildings, because they are procedurally generated randomly each run, were also hard to get working with textures since the texture mappings would all have to be created programmatically and made to repeat correctly to not look strange or cut off, which I couldn't figure out how to get working properly.
+This led me to just using simple buildings with different materials.
+
+I also tried to create a skybox for the world, but couldn't get that working in time.
+
