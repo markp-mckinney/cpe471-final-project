@@ -252,7 +252,7 @@ static float randFloatMinMaxSigned(float min, float max) {
 }
 
 static void initGeom() {
-    float g_groundSize = 400;
+    float g_groundSize = 1000;
     float g_groundY = -1.0;
 
     // A x-z plane at y = g_groundY of dimension [-g_groundSize, g_groundSize]^2
@@ -490,7 +490,7 @@ static void render()
 
     // Apply perspective projection.
     P->pushMatrix();
-    P->perspective(45.0f, aspect, 0.01f, 400.0f);
+    P->perspective(45.0f, aspect, 0.01f, 1200.0f);
 
     grassProg->bind();
     glUniformMatrix4fv(grassProg->getUniform("P"), 1, GL_FALSE, value_ptr(P->topMatrix()));
