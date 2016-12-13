@@ -90,6 +90,17 @@ static bool checkCollisions(vec3 carPos) {
             j++;
         }
     }
+    for (int i = 0; i < NUM_OBJECTS; i++) {
+        if (i < NUM_OBJECTS / 2) {
+            if (checkCollision(carPos, startingLocs[i], vec3(0.6, 0, 0.8))) {
+                return true;
+            }
+        } else {
+            if (checkCollision(carPos, startingLocs[i], vec3(0.5, 0, 0.5))) {
+                return true;
+            }
+        }
+    }
     return false;
 }
 
