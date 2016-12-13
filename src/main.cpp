@@ -63,6 +63,7 @@ float rotations[NUM_OBJECTS];
 
 vector<vec3> buildingLocs[8];
 vector<vec3> buildingScales[8];
+vector<int> buildingMats[8];
 
 static void error_callback(int error, const char *description)
 {
@@ -390,6 +391,7 @@ static void init()
             remaining -= (length + 10);
             buildingScales[i].push_back(vec3(8.0, height, length));
             buildingLocs[i].push_back(vec3((float) x, height / 2, startAt + length));
+            buildingMats[i].push_back(rand() % 5);
             startAt += length * 2 + 10;
             //cout << "building at " << x << " " << height / 2 << " " << startAt + (length / 2) << endl;
         }
@@ -608,7 +610,7 @@ static void render()
                 M->translate(buildingLocs[i][j]);
                 M->scale(buildingScales[i][j]);
                 glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, value_ptr(M->topMatrix()));
-                setMaterial(4);
+                setMaterial(buildingMats[i][j]);
                 cube->draw(prog);
             M->popMatrix();
             j++;
